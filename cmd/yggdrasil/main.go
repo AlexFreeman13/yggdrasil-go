@@ -52,11 +52,12 @@ func main() {
 	getsnet := flag.Bool("subnet", false, "use in combination with either -useconf or -useconffile, outputs your IPv6 subnet")
 	getpkey := flag.Bool("publickey", false, "use in combination with either -useconf or -useconffile, outputs your public key")
 	loglevel := flag.String("loglevel", "info", "loglevel to enable")
+	chuserto := flag.String("user", "", "user (and, optionally, group) to set UID/GID to")
 	flag.Parse()
-	
+
 	done := make(chan struct{})
 	defer close(done)
-	
+
 	// Catch interrupts from the operating system to exit gracefully.
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 
@@ -271,7 +272,7 @@ func main() {
 			n.tun.SetupAdminHandlers(n.admin)
 		}
 	}
-	
+
 	//Windows service shutdown
 	minwinsvc.SetOnExit(func() {
 		logger.Infof("Shutting down service ...")
@@ -279,6 +280,14 @@ func main() {
 		// Wait for all parts to shutdown properly
 		<-done
 	})
+
+	// Change user if requested
+	if *chuserto != "" {
+		err = chuser(*chuserto)
+		if err != nil {
+			panic(err)
+		}
+	}
 
 	// Block until we are told to shut down.
 	<-ctx.Done()
